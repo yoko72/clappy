@@ -49,8 +49,7 @@ It's really tiresome.
 ```git clone```
 
 ## How to use
-It's just a wrapper of argparse. Same arguments should be given for EasyCL.
-Few cost to learn.
+It's just a wrapper of argparse. You can give same arguments for EasyCL.
 
 To give some args for ArgumentParser constructor: 
 ```EasyCL.set_args_for_parser_getter(*args, **kwargs)```
