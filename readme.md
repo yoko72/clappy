@@ -3,7 +3,7 @@
 ## why EasyCL?
 
 Easy to write and read.
-You can directly and independently get command line arguments in multiple places.
+You can get command line arguments in multiple places directly and separately.
 
 e.g. with Easy CL:
 ```
