@@ -5,7 +5,7 @@
 Easy to write and read.
 You can get command line arguments in multiple places directly and separately.
 
-e.g. with Easy CL:
+e.g. Script with Easy CL:
 ```
 kwarg = EasyCL.get_arg("--kwarg")
 parg = EasyCL.get_arg("fuga")
