@@ -1,6 +1,6 @@
 # EasyCL
 
-##why EasyCL?
+## why EasyCL?
 
 Easy to write and read.
 You can directly and independently get command line arguments in multiple places.
@@ -45,10 +45,10 @@ Then you must give the result of parse to other scope again to process the resul
 It's really tiresome.
 
 
-##How to install
+## Install
 ```git clone```
 
-##How to use
+## How to use
 It's just a wrapper of argparse. Same arguments should be given for EasyCL.
 Few cost to learn.
 
