@@ -1,6 +1,11 @@
 from argparse import ArgumentParser
 from dataclasses import dataclass
 from sys import exit, argv
+from gettext import gettext as _
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -37,8 +42,11 @@ class EasyCL(ArgumentParser):
     def create_help(cls, *args, **kwargs):
         """Create help and exit program. If help message by -h is not required, this method is not needed."""
         if len(argv) == 1:
-            raise TypeError("No argument was given. for help.")
-        elif argv[1] == "-h" or argv[1] == "--help":
+            logger.info("Script started without arguments.")
+            return
+        elif len(argv) == 2 and argv[1] in ["-h", "--help"]:
+            if not cls.arguments:
+                raise TypeError("No argument was given for help.")
             if cls.kwargs_for_parser["add_help"] is True:
                 return
             cls.kwargs_for_parser["add_help"] = True
@@ -74,7 +82,7 @@ class EasyCL(ArgumentParser):
         if len(option_tuples) > 1:
             options = ', '.join([option_string for action, option_string, explicit_arg in option_tuples])
             args = {'option': arg_string, 'matches': options}
-            msg = ('ambiguous option: %(option)s could match %(matches)s')
+            msg = _('ambiguous option: %(option)s could match %(matches)s')
             self.error(msg % args)
 
         # Added "and option_tuples[0][0].option_strings == arg_string:" to ArgumentParser
@@ -94,7 +102,7 @@ class EasyCL(ArgumentParser):
 
 if __name__ == "__main__":
 
-    def test_print():
+    def example():
         arg1 = EasyCL.get_arg("--arg1", help="Keyword optional arg")
         i = EasyCL.get_arg("-i")
         hoge = EasyCL.get_arg("--hoge")
@@ -106,4 +114,4 @@ if __name__ == "__main__":
         EasyCL.create_help()  # can be omitted, if no help is needed.
         print("after help")
 
-    test_print()
+    example()
