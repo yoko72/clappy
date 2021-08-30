@@ -7,8 +7,8 @@ You can get command line arguments in multiple places directly and separately.
 
 e.g. with Easy CL:
 ```
-kwarg1 = EasyCL.get_arg("--kwarg1")
-parg1 = EasyCL.get_arg("fuga")
+kwarg = EasyCL.get_arg("--kwarg")
+parg = EasyCL.get_arg("fuga")
 
 def set_logger():
     logger_level = EasyCL.get_arg("--log_level")
@@ -21,7 +21,7 @@ set_logger()
 Equivalent script without EasyCL:
 ```
 parser = argparse.ArgumentParser()
-parser.add_argument("--kwarg1")
+parser.add_argument("--kwarg")
 parser.add_argument("fuga")
 
 def set_log_level_arg(parser):
@@ -30,7 +30,7 @@ def set_log_level_arg(parser):
 set_log_level_arg(parser)
 
 args = parser.parse_args()
-kwarg1, parg1, logger_level = args.kwarg1, args.fuga, args.log_level
+kwarg, parg, logger_level = args.kwarg1, args.fuga, args.log_level
 
 def set_level_on_logger(level):
     logger.setLevel(level)
@@ -38,15 +38,11 @@ def set_level_on_logger(level):
 set_level_on_logger(logger_level)
 ```
 
-You must give parser to add arguments in other scope.
+Without EasyCL, you must give parser instance to add arguments in other scope.
 Moreover, you must parse after all arguments set.
 Then you must give the result of parse to other scope again to process the result.
 
-It's really tiresome.
-
-
-## Install
-```git clone```
+EasyCL frees you from such tiresome steps.
 
 ## How to use
 It's just a wrapper of argparse. You can give same arguments for EasyCL.
