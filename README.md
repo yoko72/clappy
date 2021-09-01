@@ -1,17 +1,23 @@
-# EasyCL
+# FreeCL
 
-## why EasyCL?
+## why FreeCL?
 
-Easy to write and read.
-You can get command line arguments in multiple places directly and separately.
+FreeCL halves codes to treat command line arguments.
+Your code will get more readability.
+You can get command line arguments in multiple places directly, separately, and freely!
 
-e.g. Script with EasyCL:
+It will take very shot time since it's a wrapper of argparse.
+
+
+e.g. Script with freeCL:
 ```
-kwarg = EasyCL.get_arg("--kwarg")
-parg = EasyCL.get_arg("fuga")
+from freeCL import parse
+
+kwarg = parse("--kwarg")
+parg = parse("fuga")
 
 def set_logger():
-    logger_level = EasyCL.get_arg("--log_level")
+    logger_level = parse("--log_level")
     logger.setLevel(logger_level)
 
 set_logger()
@@ -20,7 +26,9 @@ set_logger()
 
 Equivalent script without EasyCL:
 ```
-parser = argparse.ArgumentParser()
+from argparse import ArgumentParser
+
+parser = ArgumentParser()
 parser.add_argument("--kwarg")
 parser.add_argument("fuga")
 
@@ -38,20 +46,19 @@ def set_level_on_logger(level):
 set_level_on_logger(logger_level)
 ```
 
-Without EasyCL, you must give parser instance to add arguments in other scope.
-Moreover, you must parse after all arguments set.
-Then you must give the result of parse to other scope again to process the result.
+Without freeCL, you must
+･Give parser instance to function in order to add arguments.
+･Parse after all arguments set.
+･Give the result of parse to other scope again to process the result.
 
-EasyCL frees you from such tiresome steps.
+freeCL frees you from such tiresome steps.
 
 ## How to use
-It's just a wrapper of argparse. You can give same arguments for EasyCL.
+It's a wrapper of argparse. You can give same arguments for freeCL as argparse.
+Just call freeCL.parse(*args, **kwargs) with same arguments as argparse.ArgumentParser().add_argument(*args, **kwargs).
 
 To give some args for ArgumentParser constructor: 
-```EasyCL.set_args_for_parser_getter(*args, **kwargs)```
-
-To give arguments for parser.add_argument(*args, **kwargs):
-```EasyCL.get_arg(*args, **kwargs)```
+```freeCL.Parser.set_args_for_parser_getter(*args, **kwargs)```
 
 If you want help auto generation, add following code after all arguments received.
 ```EasyCL.create_help()```

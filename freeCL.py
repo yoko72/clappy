@@ -14,7 +14,7 @@ class ArgumentsQueue:
     kwargs: dict
 
 
-class EasyCL(ArgumentParser):
+class Parser(ArgumentParser):
     arguments = []
     args_for_parser = tuple()
     kwargs_for_parser = dict(add_help=False)
@@ -100,18 +100,26 @@ class EasyCL(ArgumentParser):
         return None, arg_string, None
 
 
+def parse(*args, **kwargs):
+    """alias of Parser.get_arg"""
+    return Parser.get_arg(*args, **kwargs)
+
+def create_help(*args, **kwargs):
+    """alias of Parser.create_help(*args, **kwargs)"""
+
+
 if __name__ == "__main__":
 
     def example():
-        arg1 = EasyCL.get_arg("--arg1", help="Keyword optional arg")
-        i = EasyCL.get_arg("-i")
-        hoge = EasyCL.get_arg("--hoge")
-        posi = EasyCL.get_arg("aiueo", nargs="*")
+        arg1 = parse("--arg1", help="Keyword optional arg")
+        i = Parser.get_arg("-i")
+        hoge = parse("--hoge")
+        posi = parse("aiueo", nargs="*")
         print("arg1: ", arg1)
         print("i: ", i)
         print("hoge: ", hoge)
         print("aiueo: ", posi)
-        EasyCL.create_help()  # can be omitted, if no help is needed.
+        create_help()  # write this only when you need help with -h or --help.
         print("after help")
 
     example()

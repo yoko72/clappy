@@ -1,1 +1,1 @@
-from EasyCL import EasyCL
+from freeCL import Parser
