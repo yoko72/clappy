@@ -1,4 +1,4 @@
-#FreeCL
+# FreeCL
 FreeCL is a simple friendly command line parser.
 ```
 given_kwarg = parse("--kwarg")
@@ -42,11 +42,11 @@ def set_level_on_logger(level):
 set_level_on_logger(logger_level)
 ```
 
-##Install
+## Install
 ```git clone https://github.com/yoko72/freeCL```
 Put the dir on path.
 
-##How to use
+## How to use
 FreeCL is a wrapper of argparse. You can give arguments for freeCL same as argparse.
 The reference of argparse is https://docs.python.org/ja/3/howto/argparse.html.
 
