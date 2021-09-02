@@ -1,13 +1,11 @@
-# FreeCL
+#FreeCL
+FreeCL is a simple friendly command line parser.
+```
+given_kwarg = parse("--kwarg")
+```
 
-## why FreeCL?
-
-FreeCL halves codes to treat command line arguments.  
-Your code will get more readability.  
-You can get command line arguments in multiple places directly, separately, and freely!
-
-It will take very shot time since it's a wrapper of argparse.
-
+FreeCL allows you to parse command line arguments extremely easily.
+There’s no need to manually add arguments to a parser beforehand, or reuse the parser or result in multiple scopes.
 
 e.g. Script with freeCL:
 ```
@@ -22,9 +20,7 @@ def set_logger():
 
 set_logger()
 ```
-
-
-Equivalent script without EasyCL:
+Equivalent script without freeCL:
 ```
 from argparse import ArgumentParser
 
@@ -46,19 +42,14 @@ def set_level_on_logger(level):
 set_level_on_logger(logger_level)
 ```
 
-Without freeCL, you must  
-･Give parser instance to function in order to add arguments.  
-･Parse after all arguments set.  
-･Give the result of parse to other scope again to process the result.  
+##Install
+```git clone https://github.com/yoko72/freeCL```
+Put the dir on path.
 
-freeCL frees you from such tiresome steps.
+##How to use
+FreeCL is a wrapper of argparse. You can give arguments for freeCL same as argparse.
+The reference of argparse is https://docs.python.org/ja/3/howto/argparse.html.
 
-## How to use
-It's a wrapper of argparse. You can give same arguments for freeCL as argparse.  
-Just call freeCL.parse(*args, **kwargs) with same arguments as argparse.ArgumentParser().add_argument(*args, **kwargs).
-
-To give some args for ArgumentParser constructor:
-```freeCL.Parser.set_args_for_parser_getter(*args, **kwargs)```
-
-If you want help auto generation, add following code after all arguments received.
-```EasyCL.create_help()```
+Just call freeCL.parse(*args, **kwargs) as if argparse.ArgumentParser().add_argument(*args, **kwargs).
+To give some args for ArgumentParser constructor: freeCL.Parser.set_args_for_parser_getter(*args, **kwargs)
+If you want to generate help automatically, call freeCL.create_help(). It must be done after all arguments got parsed. 
