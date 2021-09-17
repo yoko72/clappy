@@ -1,15 +1,19 @@
-# FreeCL
-FreeCL is a simple friendly command line parser.
+# clappy
+Command Line Argument Parser for PYthonic code.
 ```
-given_kwarg = parse("--kwarg")
+given_kwarg1 = clappy.parse("--kwarg1")
+
+# do some stuff with given_kwarg1
+
+given_kwarg2 = clappy.parse("--kwarg2")
 ```
 
-FreeCL allows you to parse command line arguments extremely easily.
+Clappy allows you to parse command line arguments extremely easily and separatedly.
 There’s no need to manually add arguments to a parser beforehand, or reuse the parser or result in multiple scopes.
 
-e.g. Script with freeCL:
+e.g. Script with clappy:
 ```
-from freeCL import parse
+from clappy import parse
 
 kwarg = parse("--kwarg")
 parg = parse("fuga")
@@ -20,7 +24,7 @@ def set_logger():
 
 set_logger()
 ```
-Equivalent script without freeCL:
+Equivalent script without clappy:
 ```
 from argparse import ArgumentParser
 
@@ -43,13 +47,13 @@ set_level_on_logger(logger_level)
 ```
 
 ## Install
-```git clone https://github.com/yoko72/freeCL```
+```git clone https://github.com/yoko72/clappy```
 Put the dir on path.
 
 ## How to use
-FreeCL is a wrapper of argparse. You can give arguments for freeCL same as argparse.
+clappy is a wrapper of argparse. You can give arguments for clappy same as argparse.
 The reference of argparse is https://docs.python.org/ja/3/howto/argparse.html.
 
-Just call freeCL.parse(*args, **kwargs) as if argparse.ArgumentParser().add_argument(*args, **kwargs).
-To give some args for ArgumentParser constructor: freeCL.Parser.set_args_for_parser_getter(*args, **kwargs)
-If you want to generate help automatically, call freeCL.create_help(). It must be done after all arguments got parsed. 
+Just call clappy.parse(*args, **kwargs) as if argparse.ArgumentParser().add_argument(*args, **kwargs).
+To give some args for ArgumentParser constructor: clappy.Parser.set_args_for_parser_getter(*args, **kwargs)
+If you want to generate help automatically, call clappy.create_help(). It must be done after all arguments got parsed. 
