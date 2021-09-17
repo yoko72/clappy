@@ -2,6 +2,7 @@ from sys import exit, argv
 from gettext import gettext as _
 from typing import Optional
 import logging
+import argparse
 from argparse import *
 import functools
 
@@ -17,21 +18,25 @@ else:
     runs_with_help_option = False
 
 
-class Parser(ArgumentParser):
+class Parser(argparse.ArgumentParser):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.args_on_parse = None
-        self.kwargs_on_parse = None
+        self.args_on_parse: Optional[tuple] = None
+        self.kwargs_on_parse: Optional[dict] = {}
         self.namespace = None
 
     def parse(self, *args, **kwargs):
-        if _parser is None:
-            initialize_parser()
         self.add_argument(*args, **kwargs)
         if not runs_with_help_option:
-            namespace, _ = _parser.parse_known_args(self.args_on_parse, **self.kwargs_on_parse)
+            namespace, _ = self.parse_known_args()
             self.namespace = namespace
             return getattr(namespace, args[0].lstrip("-"))
+
+    def parse_known_args(self, *args, **kwargs):
+        if args or kwargs:
+            return super().parse_known_args(*args, **kwargs)
+        else:
+            return super().parse_known_args(self.args_on_parse, **self.kwargs_on_parse)
 
     def _parse_optional(self, arg_string):
         if not arg_string:
@@ -179,6 +184,7 @@ def initialize_parser(*args, **kwargs):
 
 def init_parser(func):
     global _parser
+
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         if _parser is None:
@@ -257,16 +263,10 @@ if __name__ == "__main__":
 
     def example():
         print("Given args:", argv[1::])
-        initialize_parser()
-        kwarg1 = parse("--kwarg1", help="Keyword optional arg")
-        i = _parser.parse("-i")
-        hoge = parse("--hoge")
-        posi = parse("aiueo", nargs="*")
-        # a_parser = get_subcommand_parser("a")
-        # b_parser = get_subcommand_parser("b")
-        # sub_a = a_parser.parse("--sub_a")
-        # sub_b = b_parser.parse("--sub_b")
-        last_arg = parse("--last_kwarg")
+
+        a_parser = get_subcommand_parser("a")
+        sub_a = a_parser.parse("--sub_a")
         create_help()  # write this only when you need help with -h or --help.
-        print("Parsed args: ", [kwarg1, i, hoge, posi, last_arg])  # , sub_a, sub_b, last_arg])
+        print(sub_a)
+
     example()
