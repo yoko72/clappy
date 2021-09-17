@@ -6,5 +6,6 @@ setup(name='clappy',
       py_modules=['clappy'],
       author='Toshiyuki Yokoyama',
       author_email='yokoyamacode@gmail.com',
-      url='https://github.com/yoko72/clappy'
+      url='https://github.com/yoko72/clappy',
+      setup_requires=['wheel']
       )
