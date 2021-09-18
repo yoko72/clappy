@@ -3,3 +3,4 @@ memo
 README.md
 *.bat
 .pypirc
+dist
