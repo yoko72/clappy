@@ -4,7 +4,7 @@ from setuptools import setup
 
 
 setup(name='clappy',
-      version='0.1.1',
+      version='0.1.2',
       py_modules=['clappy'],
       description="Command line argument parser for pythonic code",
       long_description="""Command Line Argument Parser for PYthonic code.
