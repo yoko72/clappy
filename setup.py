@@ -1,7 +1,5 @@
 from setuptools import setup
 
-# requires = ["requests>=3.2"]
-
 
 setup(name='clappy',
       version='0.1.2',
