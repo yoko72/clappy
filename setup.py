@@ -19,6 +19,7 @@ You can directly get each given arg.""",
       author_email='yokoyamacode@gmail.com',
       url='https://github.com/yoko72/clappy',
       setup_requires=['wheel'],
+      python_requires='>=3.2',
       # install_requires=requires,
       keywords="command line argument parser"
       )
