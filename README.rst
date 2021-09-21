@@ -7,7 +7,7 @@ Command Line Argument Parser for PYthonic code.
 
    given_kwarg1 = clappy.parse("--kwarg1")
 
-You can get each given command line argument easily. You don’t have to
+You can get each given command line argument easily. You don't have to
 bother about handling parser anymore.
 
 e.g. Script with clappy:
