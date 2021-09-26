@@ -5,6 +5,7 @@ import logging
 import argparse
 from argparse import *
 import functools
+import inspect
 
 
 logger = logging.getLogger(__name__)
@@ -18,6 +19,22 @@ else:
     runs_with_help_option = False
 
 
+def normalize_bound_of_args(func):
+    """Same hash by same values.
+    This converts each keyword arg to positional arg as much as possible.
+    If default arguments don't get actual argument, explicitly give the default value.
+    """
+    signature = inspect.signature(func)
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        bound = signature.bind(*args, **kwargs)
+        bound.apply_defaults()
+        print(bound.args)
+        print(bound.kwargs)
+        return func(*bound.args, **bound.kwargs)
+    return wrapper
+
+
 class Parser(argparse.ArgumentParser):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -25,9 +42,19 @@ class Parser(argparse.ArgumentParser):
         self.kwargs_on_parse: Optional[dict] = {}
         self.namespace = None
 
+    @normalize_bound_of_args
     @functools.lru_cache()  # so that parse can be called multiple times to get result in multiple places.
     def parse(self, *args, **kwargs):
-        self.add_argument(*args, **kwargs)
+        try:
+            self.add_argument(*args, **kwargs)
+        except argparse.ArgumentError as e:
+            if e.message.startswith("conflicting"):
+                msg = \
+                    f"""Same arguments were registered to parser beforehand.
+Usually, a cache was returned in such a case. However, cache is not returned this time 
+since you run {self.parse.__name__}() this time with different arguments from last time. 
+Try to use completely same arguments for {self.parse.__name__}()."""
+                raise ValueError(msg) from e
         if not runs_with_help_option:
             namespace, _ = self.parse_known_args()
             self.namespace = namespace
@@ -36,6 +63,7 @@ class Parser(argparse.ArgumentParser):
             except IndexError:
                 arg = kwargs["dest"]
             finally:
+                # noinspection PyUnboundLocalVariable
                 arg = arg.lstrip(self.prefix_chars)
             return getattr(namespace, arg)
 
