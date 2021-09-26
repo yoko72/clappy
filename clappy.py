@@ -25,12 +25,19 @@ class Parser(argparse.ArgumentParser):
         self.kwargs_on_parse: Optional[dict] = {}
         self.namespace = None
 
+    @functools.lru_cache()  # so that parse can be called multiple times to get result in multiple places.
     def parse(self, *args, **kwargs):
         self.add_argument(*args, **kwargs)
         if not runs_with_help_option:
             namespace, _ = self.parse_known_args()
             self.namespace = namespace
-            return getattr(namespace, args[0].lstrip("-"))
+            try:
+                arg = args[0]
+            except IndexError:
+                arg = kwargs["dest"]
+            finally:
+                arg = arg.lstrip(self.prefix_chars)
+            return getattr(namespace, arg)
 
     def parse_known_args(self, *args, **kwargs):
         if args or kwargs:
@@ -191,6 +198,12 @@ def init_parser(func):
             initialize_parser()
         return func(*args, **kwargs)
     return wrapper
+
+
+def clear_actions():
+    global _parser
+    if _parser:
+        _parser._actions = list()
 
 
 def set_parser(parser: Parser):
