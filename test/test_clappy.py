@@ -50,17 +50,6 @@ def get_arg(bound):
     return arg
 
 
-class MyTestResult(unittest.TestResult):
-    def addFailure(self, test, err):
-        # here you can do what you want to do when a test case fails
-        print('test failed!')
-        super(MyTestResult, self).addFailure(test, err)
-
-    def addError(self, test, err):
-        # here you can do what you want to do when a test case raises an error
-        super(MyTestResult, self).addError(test, err)
-
-
 class TestClappy(unittest.TestCase):
     """Checks the result of parsing."""
 
@@ -152,4 +141,4 @@ class TestClappy(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    unittest.main(testRunner=unittest.TextTestRunner(resultclass=MyTestResult))
+    unittest.main()
