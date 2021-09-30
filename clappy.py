@@ -25,6 +25,7 @@ def normalize_bound_of_args(func):
     If default arguments don't get actual argument, explicitly give the default value.
     """
     signature = inspect.signature(func)
+
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         bound = signature.bind(*args, **kwargs)
@@ -37,7 +38,7 @@ def _get_action_name(argument):
     if argument is None:
         return None
     elif argument.option_strings:
-        return  '/'.join(argument.option_strings)
+        return '/'.join(argument.option_strings)
     elif argument.metavar not in (None, SUPPRESS):
         return argument.metavar
     elif argument.dest not in (None, SUPPRESS):
@@ -47,6 +48,13 @@ def _get_action_name(argument):
 
 
 class Parser(argparse.ArgumentParser):
+    VALUE_CHANGE_MESSAGE = '''While parsing {input_arg_name}, the result of "{attr}" got changed. 
+Until last time: {attr}={last_time}
+On parsing {input_arg_name}: {attr}={this_time}.
+This usually happens because of similar names of arguments.
+Otherwise, it's because of confusing order of parsing argument or 
+order of giving argument in commandline. 
+Consider to change them if you actually got invalid result.'''
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.args_on_parse: Optional[tuple] = None
@@ -56,46 +64,51 @@ class Parser(argparse.ArgumentParser):
 
     @normalize_bound_of_args
     @functools.lru_cache()  # so that parse can be called multiple times to get result in multiple places.
-    def parse(self, *args, **kwargs):
+    def parse(self, *args, flag=False, **kwargs):
+        if flag:
+            if kwargs.get("action", None) is None:
+                kwargs["action"] = "store_true"
+            else:
+                raise TypeError(f"{parse.__name__} got multiple values for action, "
+                                f"since flag=True is alias of action='store_true'.")
         try:
             self.add_argument(*args, **kwargs)
         except argparse.ArgumentError as e:
             if e.message.startswith("conflicting"):
                 msg = \
                     f"""Same arguments were registered to parser beforehand.
-Usually, a cache was returned in such a case. However, cache is not returned this time 
-since you run {self.parse.__name__}() this time with different arguments from last time. 
-Try to use completely same arguments for {self.parse.__name__}()."""
+Usually, the cache was returned in such case. However, cache is not returned this time 
+since some of given arguments are different from last time. 
+Use completely same arguments for {self.parse.__name__}() to get cache."""
                 raise ValueError(msg) from e
         if not runs_with_help_option:
             latest_namespace, _ = self.parse_known_args()
+            for action in self._option_string_actions.values():
+                if hasattr(action, "done"):
+                    action.parsed_currently = False
+            if len(args) > 1:
+                lengths = map(len, args)
+                max_length = max(lengths)
+                input_arg_name = [arg for arg in args if len(arg) == max_length][0]
+            elif len(args) == 1:
+                input_arg_name = args[0]
+            else:
+                input_arg_name = kwargs.get("dest", None)
+                if input_arg_name is None:
+                    raise TypeError("Name of arg was not given. "
+                                    "Positional argument or keyword argument for 'dest' is required.")
 
-            try:
-                arg = args[0]
-            except IndexError:
-                arg = kwargs["dest"]
-            finally:
-                # noinspection PyUnboundLocalVariable
-                arg = arg.lstrip(self.prefix_chars)
+            # noinspection PyUnboundLocalVariable
+            arg = input_arg_name.lstrip(self.prefix_chars)
             if self.namespace:
                 for attr in self.namespace.__dict__:
-                    if getattr(self.namespace, attr) != getattr(latest_namespace, attr):
-                        logger.error("The result becomes changed")  # TODO
-
+                    last_time = getattr(self.namespace, attr)
+                    this_time = getattr(latest_namespace, attr)
+                    if last_time != this_time:
+                        logger.error(self.VALUE_CHANGE_MESSAGE.format(input_arg_name=input_arg_name, attr=attr,
+                                                                      last_time=last_time, this_time=this_time))
             self.namespace = latest_namespace
-            try:
-                return getattr(latest_namespace, arg)
-            except AttributeError:
-                for i in range(len(arg)):
-                    results = []
-                    namelike = arg[0:i]
-                    for attr in latest_namespace.__dict__:
-                        if attr == namelike:
-                            results.append(attr)
-                    if len(results) == 1:
-                        return getattr(latest_namespace, results[0])
-                    elif len(results) == 0:  # TODO
-                        raise Exception("No attribute was found")
+            return getattr(latest_namespace, arg)
 
     def parse_known_args(self, *args, **kwargs):
         if args or kwargs:
@@ -240,7 +253,7 @@ Try to use completely same arguments for {self.parse.__name__}()."""
             # the Optional's string args stopped
             assert action_tuples
             for action, args, option_string in action_tuples:
-                if hasattr(action, "done") and action.done is True:
+                if hasattr(action, "parsed_currently") and action.parsed_currently is True:
                     continue
                 take_action(action, args, option_string)
                 option_name = option_string.lstrip("-")
@@ -248,7 +261,7 @@ Try to use completely same arguments for {self.parse.__name__}()."""
                     if hasattr(namespace, option_name) and getattr(namespace, option_name) is not None:
                         registered_actions = self._registries["action"]
                         if not isinstance(action, (registered_actions["append"], registered_actions["extend"])):
-                            action.done = True
+                            action.parsed_currently = True
             return stop
 
         # the list of Positionals left to be parsed; this is modified
@@ -481,7 +494,7 @@ def initialize_parser(*args, **kwargs):
                              "If you want to remake it, set_parser(None) first, then initialize again.")
         else:
             raise ValueError(f"Tried to initialize parser, but parser is already not None."
-                             f"Something wrong happend. The type of parser is {type(_parser)}.")
+                             f"Something wrong happened. The type of parser is {type(_parser)}.")
     if kwargs.get("add_help", None) is not None:
         add_help = kwargs["add_help"]
     else:
@@ -508,6 +521,24 @@ def clear_actions():
     global _parser
     if _parser:
         _parser._actions = list()
+
+
+def clear_parser():
+    global _parser
+    _parser = None
+
+
+def get_parser(*args, **kwargs):
+    global _parser
+    if _parser is not None:
+        if args or kwargs:
+            logger.warning(f"Initialized parser already exists, but you ran {get_parser.__name__} with {args, kwargs}."
+                           f"This func returned the existing parser, and your {args} and {kwargs} were ignored."
+                           f"If you want new parser constructed with those arguments, "
+                           f"call {clear_parser.__name__}() and then rerun initialize.")
+    else:
+        _parser = Parser(*args, **kwargs)
+    return _parser
 
 
 def set_parser(parser: Parser):
