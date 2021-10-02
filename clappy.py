@@ -64,13 +64,13 @@ Consider to change them if you actually got invalid result.'''
 
     @normalize_bound_of_args
     @functools.lru_cache()  # so that parse can be called multiple times to get result in multiple places.
-    def parse(self, *args, flag=False, **kwargs):
-        if flag:
+    def parse(self, *args, is_flag=False, **kwargs):
+        if is_flag:
             if kwargs.get("action", None) is None:
                 kwargs["action"] = "store_true"
             else:
                 raise TypeError(f"{parse.__name__} got multiple values for action, "
-                                f"since flag=True is alias of action='store_true'.")
+                                f"since is_flag=True is alias of action='store_true'.")
         try:
             self.add_argument(*args, **kwargs)
         except argparse.ArgumentError as e:
