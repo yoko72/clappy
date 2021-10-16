@@ -1,6 +1,5 @@
 memo
 .idea
-README.md
 *.bat
 .pypirc
 dist
