@@ -1,4 +1,4 @@
-import clappy
+import clappy as cl
 import unittest
 import argparse
 import sys
@@ -28,6 +28,8 @@ signature = inspect.signature(argparse.ArgumentParser().add_argument)
 
 
 def append_bound(*args, **kwargs):
+    """Store given arguments for both 'add_argument' in argparse, and 'parse' in clappy,
+    so that each of them don't require call with arguments each time."""
     argument_bound = signature.bind(*args, **kwargs)
     bounds.append(argument_bound)
 
@@ -40,6 +42,7 @@ def get_namespace_from_pure_argparse():
 
 
 def get_arg(bound):
+    """Gets the argument from bound since """
     try:
         arg = bound.args[0]
     except IndexError:
@@ -55,36 +58,34 @@ class TestClappy(unittest.TestCase):
 
     def tearDown(self) -> None:
         global bounds
-        clappy._parser = None
-        clappy._subparsers = None
+        cl._parser = None
         bounds = []
 
     @temp_argv("a", "b", "c")
     def test_positional_arg(self):
-        self.assertEqual(clappy.parse("positionals", nargs="*"), ["a", "b", "c"])
+        self.assertEqual(cl.parse("positionals", nargs="*"), ["a", "b", "c"])
 
     @temp_argv("--kw", "hoge")
     def test_kwarg(self):
-        self.assertEqual(clappy.parse("--kw"), "hoge")
+        self.assertEqual(cl.parse("--kw"), "hoge")
 
     @temp_argv("-k", "foo")
     def test_abbreviated(self):
-        self.assertEqual(clappy.parse("--keyword", "-k", "-kw"), "foo")
+        self.assertEqual(cl.parse("--keyword", "-k", "-kw"), "foo")
 
     @temp_argv("-ke", "foo")
     def test_shorter_name_than_given_arg(self):
         append_bound("-keyword")
         namespace = get_namespace_from_pure_argparse()
-        self.assertEqual(clappy.parse(*bounds[0].args, **bounds[0].kwargs), namespace.keyword)
+        self.assertEqual(cl.parse(*bounds[0].args, **bounds[0].kwargs), namespace.keyword)
 
     @temp_argv("sub1", "--subkw", "foo")
     def test_subcommand(self):
-        subparser = clappy.get_subcommand_parser("sub1")
-        result = subparser.parse("--subkw")
-        self.assertEqual(result, "foo")
+        self.assertTrue(cl.subcommand("sub1"))
+        self.assertEqual(cl.parse("--subkw"), "foo")
 
     @temp_argv("-a", "3", "--b1", "4", "5", "6")
-    def test_parse_combined_arguments(self):
+    def test_combined_arguments(self):
         append_bound("-a", default=2)
         append_bound("--b1", default=7)
         append_bound("--flag", action="store_true")
@@ -95,13 +96,49 @@ class TestClappy(unittest.TestCase):
         for bound in bounds:
             arg = get_arg(bound)
             with self.subTest(arg=arg):
-                self.assertEqual(getattr(namespace, arg), clappy.parse(*bound.args, **bound.kwargs))
+                self.assertEqual(getattr(namespace, arg), cl.parse(*bound.args, **bound.kwargs))
+
+    @temp_argv("--foo", "bar", "sub2", "--subopt2", "val", "posiv", "posi2")
+    def test_opt_and_subcommand(self):
+        argparser = argparse.ArgumentParser()
+        argparser.add_argument("--foo")
+        argparser.add_argument("--not_given", default=5)
+        subparsers = argparser.add_subparsers()
+        subparser1 = subparsers.add_parser("sub1")
+        subparser1.add_argument("--subopt1")
+        subparser1.add_argument("-notgiven", default=3)
+        subparser2 = subparsers.add_parser("sub2")
+        subparser2.add_argument("--subopt2")
+        subparser2.add_argument("-notgiven2", default=3)
+        subparser2.add_argument("posi", nargs="*")
+
+        namespace = argparser.parse_args()
+
+        with self.subTest(arg="foo"):
+            self.assertEqual(namespace.foo, cl.parse("--foo"))
+        with self.subTest():
+            self.assertTrue(cl.subcommand("sub2"))
+        with self.subTest():
+            self.assertTrue(not cl.subcommand("sub1"))
+        with self.subTest():
+            self.assertEqual(namespace.subopt2, cl.parse("--subopt2"))
+        with self.subTest():
+            self.assertEqual(namespace.notgiven2, cl.parse("-notgiven2", default=3))
+        with self.subTest():
+            self.assertEqual(namespace.posi, cl.parse("posi", nargs="*"))
+
+    @temp_argv("posi1", "sub1", "1", "2", "3")
+    def test_subcommand_and_positionals(self):
+        cl.parse("itihikisuu")
+        if cl.subcommand("sub1"):
+            cl_result = cl.parse("posi", nargs="*")
+            self.assertEqual(cl_result, ["1", "2", "3"])
 
     @temp_argv("-kfoo")
     def test_value_without_space(self):
         append_bound("-k")
         namespace = get_namespace_from_pure_argparse()
-        self.assertEqual(clappy.parse(*bounds[0].args, **bounds[0].kwargs), namespace.k)
+        self.assertEqual(cl.parse(*bounds[0].args, **bounds[0].kwargs), namespace.k)
 
     @temp_argv("-kw5", "wrong1", "-k", "correct", "-kw4", "wrong2")
     def test_same_first_char(self):
@@ -112,7 +149,7 @@ class TestClappy(unittest.TestCase):
         for bound in bounds:
             arg = get_arg(bound)
             with self.subTest(arg=arg):
-                self.assertEqual(clappy.parse(*bound.args, **bound.kwargs), getattr(namespace, arg))
+                self.assertEqual(cl.parse(*bound.args, **bound.kwargs), getattr(namespace, arg))
 
     @temp_argv("-a1", "-a2", "val")
     def test_stderr(self):
@@ -120,10 +157,10 @@ class TestClappy(unittest.TestCase):
         append_bound("-a")
         append_bound("-a2")
         with captured_stderr() as stderr:
-            clappy.parse(*bounds[0].args, **bounds[0].kwargs)
-            clappy.parse(*bounds[1].args, **bounds[1].kwargs)
+            cl.parse(*bounds[0].args, **bounds[0].kwargs)
+            cl.parse(*bounds[1].args, **bounds[1].kwargs)
         stdout_list = stderr.getvalue().splitlines()
-        expected_message = clappy.get_parser().VALUE_CHANGE_MESSAGE.format(
+        expected_message = cl.get_parser().VALUE_CHANGE_MESSAGE.format(
             input_arg_name="-a2", attr="a",
             last_time="2", this_time="1"
         )
@@ -137,7 +174,7 @@ class TestClappy(unittest.TestCase):
         for bound in bounds:
             arg = get_arg(bound)
             with self.subTest(arg=arg):
-                self.assertEqual(clappy.parse(*bound.args, **bound.kwargs), getattr(namespace, arg))
+                self.assertEqual(cl.parse(*bound.args, **bound.kwargs), getattr(namespace, arg))
 
 
 if __name__ == '__main__':
