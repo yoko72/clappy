@@ -10,7 +10,7 @@ import inspect
 
 logger = logging.getLogger(__name__)
 HELP_OPTIONS = ["-h", "--help"]
-
+SUBCOMMAND = "_subcommand"
 
 if len(argv) == 2 and argv[1].lower() in HELP_OPTIONS:
     runs_with_help_option = True
@@ -48,23 +48,34 @@ def _get_action_name(argument):
 
 
 class Parser(argparse.ArgumentParser):
-    VALUE_CHANGE_MESSAGE = '''While parsing {input_arg_name}, the result of "{attr}" got changed. 
-Until last time: {attr}={last_time}
-On parsing {input_arg_name}: {attr}={this_time}.
-This usually happens because of similar names of arguments.
-Otherwise, it's because of confusing order of parsing argument or 
-order of giving argument in commandline. 
+    dest_name = SUBCOMMAND  # for detecting which subcommand is invoked
+    is_verbose = True
+    VERBOSE_VALUE_CHANGE_MESSAGE = '''
+    While parsing {input_arg_name}, the value of "{attr}" changed from {last_time} to {this_time}.
+This usually happens because of similar names of arguments or confusing order of arguments.
 Consider to change them if you actually got invalid result.'''
+    VALUE_CHANGE_MESSAGE = '''"{attr}" changed from {last_time} to {this_time}.'''
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.args_on_parse: Optional[tuple] = None
+        self.args_for_parse: list = argv[1::]
         self.kwargs_on_parse: Optional[dict] = {}
         self.namespace = None
         self.parsed_result = dict()
+        self.subparsers_list = []
+        self.subparsers_action = None
+        self.index_of_subcommand = None
 
     @normalize_bound_of_args
     @functools.lru_cache()  # so that parse can be called multiple times to get result in multiple places.
     def parse(self, *args, is_flag=False, **kwargs):
+        if self.subparsers_list:
+            parser = [subparser for subparser in self.subparsers_list if subparser.invoked][0]
+            if parser:
+                parser.args_for_parse = argv[self.index_of_subcommand+2::]
+                return parser.parse(*args, is_flag=is_flag, **kwargs)
+            else:
+                return None
         if is_flag:
             if kwargs.get("action", None) is None:
                 kwargs["action"] = "store_true"
@@ -76,15 +87,15 @@ Consider to change them if you actually got invalid result.'''
         except argparse.ArgumentError as e:
             if e.message.startswith("conflicting"):
                 msg = \
-                    f"""Same arguments were registered to parser beforehand.
-Usually, the cache was returned in such case. However, cache is not returned this time 
+                    f"""Tried to register same arguments.
+Usually, the cache is returned in such case. However, cache is not returned this time 
 since some of given arguments are different from last time. 
-Use completely same arguments for {self.parse.__name__}() to get cache."""
+Use same arguments for {self.parse.__name__}() to get cache."""
                 raise ValueError(msg) from e
         if not runs_with_help_option:
-            latest_namespace, _ = self.parse_known_args()
+            latest_namespace, unrecognized_args = self.parse_known_args()
             for action in self._option_string_actions.values():
-                if hasattr(action, "done"):
+                if hasattr(action, "parsed_currently"):
                     action.parsed_currently = False
             if len(args) > 1:
                 lengths = map(len, args)
@@ -100,6 +111,7 @@ Use completely same arguments for {self.parse.__name__}() to get cache."""
 
             # noinspection PyUnboundLocalVariable
             arg = input_arg_name.lstrip(self.prefix_chars)
+            logger.debug(f"Unrecognized args while parsing {arg}: {unrecognized_args}")
             if self.namespace:
                 for attr in self.namespace.__dict__:
                     last_time = getattr(self.namespace, attr)
@@ -114,9 +126,12 @@ Use completely same arguments for {self.parse.__name__}() to get cache."""
         if args or kwargs:
             return super().parse_known_args(*args, **kwargs)
         else:
-            return super().parse_known_args(self.args_on_parse, **self.kwargs_on_parse)
+            return super().parse_known_args(self.args_for_parse, **self.kwargs_on_parse)
 
     def _parse_known_args(self, arg_strings, namespace):
+        """Almost same as super()._parse_known_args.
+        This differs only at line 137 rows below and 156 rows below."""
+
         # replace arg strings that are file references
         if self.fromfile_prefix_chars is not None:
             arg_strings = self._read_args_from_files(arg_strings)
@@ -185,7 +200,7 @@ Use completely same arguments for {self.parse.__name__}() to get cache."""
 
         # function to convert arg_strings into an optional action
         def consume_optional(start_index):
-            nonlocal namespace
+
             # get the optional identified at this index
             option_tuple = option_string_indices[start_index]
             action, option_string, explicit_arg = option_tuple
@@ -252,16 +267,8 @@ Use completely same arguments for {self.parse.__name__}() to get cache."""
             # add the Optional to the list and return the index at which
             # the Optional's string args stopped
             assert action_tuples
-            for action, args, option_string in action_tuples:
-                if hasattr(action, "parsed_currently") and action.parsed_currently is True:
-                    continue
-                take_action(action, args, option_string)
-                option_name = option_string.lstrip("-")
-                if explicit_arg is None or f"{option_string}+{explicit_arg}" in arg_strings:
-                    if hasattr(namespace, option_name) and getattr(namespace, option_name) is not None:
-                        registered_actions = self._registries["action"]
-                        if not isinstance(action, (registered_actions["append"], registered_actions["extend"])):
-                            action.parsed_currently = True
+            # ~~~~~~~~~~~~~~~~~ only here is modified from argparse.ArgumentParser._parse_known_args ~~~~~~~~~~~~~~~~~
+            self._run_if_not_parsed(namespace, take_action, explicit_arg, arg_strings, action_tuples)
             return stop
 
         # the list of Positionals left to be parsed; this is modified
@@ -279,6 +286,7 @@ Use completely same arguments for {self.parse.__name__}() to get cache."""
             # and add the Positional and its args to the list
             for action, arg_count in zip(positionals, arg_counts):
                 args = arg_strings[start_index: start_index + arg_count]
+                self._memorize_index_of_subcommand(action, start_index)
                 start_index += arg_count
                 take_action(action, args)
 
@@ -370,48 +378,25 @@ Use completely same arguments for {self.parse.__name__}() to get cache."""
         # return the updated namespace and the extra arguments
         return namespace, extras
 
-    def _parse_optional(self, arg_string):
-        if not arg_string:
-            return None
+    def _memorize_index_of_subcommand(self, action, start_index):
+        if action.dest == SUBCOMMAND:
+            self.index_of_subcommand = start_index
 
-        if not arg_string[0] in self.prefix_chars:
-            return None
-
-        if arg_string in self._option_string_actions:
-            action = self._option_string_actions[arg_string]
-            return action, arg_string, None
-
-        if len(arg_string) == 1:
-            return None
-
-        if '=' in arg_string:
-            option_string, explicit_arg = arg_string.split('=', 1)
-            if option_string in self._option_string_actions:
-                action = self._option_string_actions[option_string]
-                return action, option_string, explicit_arg
-
-        option_tuples = self._get_option_tuples(arg_string)
-
-        if len(option_tuples) > 1:
-            options = ', '.join([option_string for action, option_string, explicit_arg in option_tuples])
-            args = {'option': arg_string, 'matches': options}
-            msg = _('ambiguous option: %(option)s could match %(matches)s')
-            self.error(msg % args)
-
-        elif len(option_tuples) == 1:
-            option_tuple, = option_tuples
-            return option_tuple
-
-        if self._negative_number_matcher.match(arg_string):
-            if not self._has_negative_number_optionals:
-                return None
-
-        if ' ' in arg_string:
-            return None
-
-        return None, arg_string, None
+    def _run_if_not_parsed(self, namespace, take_action, explicit_arg, arg_strings, action_tuples):
+        for action, args, option_string in action_tuples:
+            if hasattr(action, "parsed_currently") and action.parsed_currently is True:
+                continue
+            take_action(action, args, option_string)
+            option_name = option_string.lstrip("-")
+            if explicit_arg is None or f"{option_string}+{explicit_arg}" in arg_strings:
+                if hasattr(namespace, option_name) and getattr(namespace, option_name) is not None:
+                    registered_actions = self._registries["action"]
+                    if not isinstance(action, (registered_actions["append"], registered_actions["extend"])):
+                        action.parsed_currently = True
 
     def _get_values(self, action, arg_strings):
+        """Almost same as super()._get_values.
+        This differs only at line 43 rows below that runs '_get_value_for_subcommand'."""
         if action.nargs not in [PARSER, REMAINDER]:
             try:
                 arg_strings.remove('--')
@@ -443,44 +428,66 @@ Use completely same arguments for {self.parse.__name__}() to get cache."""
         elif action.nargs == REMAINDER:
             value = [self._get_value(action, v) for v in arg_strings]
 
-        # In clappy, not only value[0] but also other elements are considered.
-        # Since there might be argument
         elif action.nargs == PARSER:
             value = [self._get_value(action, v) for v in arg_strings]
-            validated_val = None
-            for val in value:
-                try:
-                    self._check_value(action, val)
-                except ArgumentError:
-                    continue
-                else:
-                    validated_val = val
-                    break
-            if validated_val is not None:
-                value = [validated_val] + value
-            else:
-                if action.choices:
-                    if isinstance(action.choices, dict):
-                        raise ArgumentError(action, f"Failed to find subcommand "
-                                                    f"{list(action.choices.keys())} in args: {value}")
-                    else:
-                        raise ArgumentError(action, f"Failed to find subcommand "
-                                                    f"{list(action.choices)} in args: {value}")
-                else:
-                    raise ArgumentError(action, f"Valid value for {str(action)} is not found in value: {value}")
+            self._check_if_subcommand_included(action, value)  # modified from argparse
+            # original is following.
+            # self._check_value(action, value[0])
 
-        # SUPPRESS argument does not put anything in the namespace
         elif action.nargs == SUPPRESS:
             value = SUPPRESS
 
-        # all other types of nargs produce a list
         else:
             value = [self._get_value(action, v) for v in arg_strings]
             for v in value:
                 self._check_value(action, v)
 
-        # return the converted value
         return value
+
+    def _check_if_subcommand_included(self, action, given_args:list):
+        """Checks all given_args if subcommand is included or not.
+        If not, raise SubCommandNotFound."""
+        for arg in given_args:
+            try:
+                self._check_value(action, arg)
+            except ArgumentError:
+                continue
+            else:
+                return
+        if action.choices:
+
+            if isinstance(action.choices, dict):
+                action_names = list(action.choices.keys())
+            else:
+                action_names = list(action.choices)
+            msg = f"Failed to find subcommand {action_names} in args: {given_args}"
+        else:
+            msg = f"Valid value for {str(action)} is not found in value: {given_args}"
+        raise SubCommandNotFound(msg)
+
+    def add_subparsers(self, *, dest=None, parser_class=None, **kwargs):
+        dest = dest or self.dest_name
+        parser_class = parser_class or SubCommand
+        self.subparsers_action = super().add_subparsers(dest=dest, parser_class=parser_class, **kwargs)
+        return self.subparsers_action
+
+
+class SubCommandNotFound(Exception):
+    def __init__(self, message):
+        self.message = message
+
+
+class SubCommand(Parser):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.invoked = False
+
+    def __bool__(self):
+        return self.invoked
+
+
+class NotInvoked(Exception):
+    pass
 
 
 _parser: Optional[Parser] = None
@@ -547,14 +554,14 @@ def set_parser(parser: Parser):
 
 
 @init_parser
-def parse(*args, **kwargs):
+def parse(*args, is_flag=False, **kwargs):
     """alias of parser.parse"""
-    return _parser.parse(*args, **kwargs)
+    return _parser.parse(*args, is_flag=is_flag, **kwargs)
 
 
 @init_parser
 def set_args_on_parse(*args, **kwargs):
-    _parser.args_on_parse = args
+    _parser.args_for_parse = args
     _parser.kwargs_on_parse = kwargs
 
 
@@ -569,52 +576,42 @@ def create_help(*args, **kwargs):
         return
 
 
-_subparsers = None
-
-
 @init_parser
-def initialize_subparsers(**kwargs):
-    global _subparsers
-    if _subparsers is None:
-        _subparsers = _parser.add_subparsers(**kwargs)
-    elif _subparsers is not None:
-        if isinstance(_subparsers, Action):
-            raise ValueError("Tried to initialize subparsers although it is already initialized.")
-        else:
-            raise ValueError(f"Tried to initialize subparsers, but parser is already not None."
-                             f"The type of parser is {type(_subparsers)}.")
-    return _subparsers
-
-
-@init_parser
-def get_subcommand_parser(*args, **kwargs):
-    global _subparsers
-    if _subparsers is None:
-        initialize_subparsers()
-    # noinspection PyUnresolvedReferences
-    sub_parser = _subparsers.add_parser(*args, **kwargs)
-
-    def parse(*args, **kwargs):
-        sub_parser.add_argument(*args, **kwargs)
-        if not runs_with_help_option:
-            parsed_args, _ = _parser.parse_known_args()
-            if hasattr(parsed_args, args[0].lstrip("-")):
-                return getattr(parsed_args, args[0].lstrip("-"))
-            else:
-                return None
-
-    sub_parser.parse = parse
-    return sub_parser
+def subcommand(*args, **kwargs):
+    """Same arguments as ArgumentParser.subparsers.add_parser() are available."""
+    global _parser
+    assert isinstance(_parser, Parser)
+    if not _parser.subparsers_list:
+        _parser.add_subparsers()
+    subparser = _parser.subparsers_action.add_parser(*args, **kwargs)
+    _parser.subparsers_list.append(subparser)
+    try:
+        namespace, _ = _parser.parse_known_args()
+    except SubCommandNotFound:
+        pass
+    else:
+        if hasattr(namespace, SUBCOMMAND):
+            given_subcommand = getattr(namespace, SUBCOMMAND)
+            if given_subcommand in args or given_subcommand is kwargs.get("dest", None):
+                subparser.invoked = True
+    return subparser
 
 
 if __name__ == "__main__":
 
     def example():
-        print("Given args:", argv[1::])
+        args = "--foo --fizz buzz sub2 --sub2opt bar"
+        argv[1::] = args.split(" ")
 
-        a_parser = get_subcommand_parser("a")
-        sub_a = a_parser.parse("--sub_a")
-        create_help()  # write this only when you need help with -h or --help.
-        print(sub_a)
+        foo = parse("--foo", is_flag=True)
+        print("--foo:", foo)
+
+        fizz = parse("--fizz")
+        print("--fizz:", fizz)
+
+        if subcommand("sub1").invoked:
+            print("sub1opt:", parse("--sub1opt"))
+        elif subcommand("sub2").invoked:
+            print("sub2opt:", parse("--sub2opt"))
 
     example()
