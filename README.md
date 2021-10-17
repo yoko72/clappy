@@ -71,7 +71,19 @@ It's a wrapper of argparse. You can give arguments for functions of clappy as if
 Just call clappy.parse(*args, **kwargs) as if argparse.ArgumentParser().add_argument(*args, **kwargs). 
 Same args are available. Additionally, clappy accepts one keyword argument, "is_flag".
 It's just an alias of action="store_true" in argparse. 
-An option with "is_flag" doesn't require argument and it returns bool if the option is given in command line or not.
+An option with "is_flag" doesn't require argument, and it returns bool if the option is given in command line or not.
+
+### Subcommand
+To use subcommand, call clappy.subcommand().
+The function accepts same arguments as subparsers.add_parser().
+
+    subcommand = clappy.subcommand(*args, **kwargs)  # 1
+
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers(title="foo")
+    subparser = subparsers.add_parser(*args, **kwargs)  # 2
+    
+    # 1 and 2 accept same arguments.
 
 ### Auto help generation
 
