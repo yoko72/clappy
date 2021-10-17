@@ -74,8 +74,19 @@ It's just an alias of action="store_true" in argparse.
 An option with "is_flag" doesn't require argument, and it returns bool if the option is given in command line or not.
 
 ### Subcommand
+
 To use subcommand, call clappy.subcommand().
-The function accepts same arguments as subparsers.add_parser().
+You can detect if the subcommand is invoked in both implicit or explicit ways.
+Following 2 examples are equivalent.
+
+    sc = clappy.subcommand("foo")
+    if sc.invoked:
+        # do smth
+
+    if clappy.subcommand("foo"):
+        # do smth
+
+The subcommand function accepts same arguments as subparsers.add_parser().
 
     subcommand = clappy.subcommand(*args, **kwargs)  # 1
 
