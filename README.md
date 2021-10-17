@@ -66,18 +66,12 @@ Clappy frees you from such tiresome process by independent parsing.
 
 ## How to use
 
-clappy is a wrapper of argparse. You can give arguments for clappy as if you use argparse. [Reference of argparse is here.](https://docs.python.org/ja/3/howto/argparse.html)
+It's a wrapper of argparse. You can give arguments for functions of clappy as if you use argparse. [Reference of argparse is here.](https://docs.python.org/ja/3/howto/argparse.html)
 
 Just call clappy.parse(*args, **kwargs) as if argparse.ArgumentParser().add_argument(*args, **kwargs). 
-Same args are available for clappy.parse. Additionally, clappy accepts one keyword argument, "is_flag".
-It's just an alias of action="store_true". If you set "is_flag" True, you don't need to give argument after the option.
-
-e.g.  clappy.parse("--verbose", is_flag=True)
-
-👍 --verbose 
-
-👎 --verbose True
-
+Same args are available. Additionally, clappy accepts one keyword argument, "is_flag".
+It's just an alias of action="store_true" in argparse. 
+An option with "is_flag" doesn't require argument and it returns bool if the option is given in command line or not.
 
 ### Auto help generation
 
@@ -87,12 +81,5 @@ It must be done after all arguments got parsed.
 ### Construct parser with args
 
 Initialize parser with clappy.initialize_parser(*args, **kwargs).
-These args are also common with argparse.ArgumentParser(*args, **kwargs).
-
-### Parse with args
-
-Runs clappy.set_args_on_parse(*args, **kwargs).
-Same args with ArgumentParser().parse_args(*args, **kwargs)
-
-
+These args are common with argparse.ArgumentParser(*args, **kwargs).
 
