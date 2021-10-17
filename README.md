@@ -76,15 +76,6 @@ An option with "is_flag" doesn't require argument, and it returns bool if the op
 ### Subcommand
 
 To use subcommand, call clappy.subcommand().
-You can detect if the subcommand is invoked in both implicit or explicit ways.
-Following 2 examples are equivalent.
-
-    sc = clappy.subcommand("foo")
-    if sc.invoked:
-        # do smth
-
-    if clappy.subcommand("foo"):
-        # do smth
 
 The subcommand function accepts same arguments as subparsers.add_parser().
 
@@ -95,6 +86,16 @@ The subcommand function accepts same arguments as subparsers.add_parser().
     subparser = subparsers.add_parser(*args, **kwargs)  # 2
     
     # 1 and 2 accept same arguments.
+
+You can detect if the subcommand is invoked in both implicit or explicit ways.
+Following 2 examples are equivalent.
+
+    sc = clappy.subcommand("foo")
+    if sc.invoked:
+        # do smth
+
+    if clappy.subcommand("foo"):
+        # do smth
 
 ### Auto help generation
 
