@@ -45,7 +45,7 @@ Equivalent script without clappy:
     subparser1.add_argument("--foo_opt")
     subparser2 = subparsers.add_parser("bar")
     subparser2.add_argument("--bar_opt")
-    args = parser.parse_known_args()
+    args = parser.parse_args()
     try:
         opt = args.foo_opt
     except AttributeError:
