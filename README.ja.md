@@ -1,6 +1,6 @@
 # clappy
 
-コマンドライン引数の受け取り処理がシンプルに書けるライブラリです。
+コマンドライン引数の処理がシンプルに書けるライブラリです。
 
 clappyあり:
 
@@ -43,16 +43,14 @@ clappyなし:
     subparser2 = subparsers.add_parser("bar")
     subparser2.add_argument("--bar_opt")
     args = parser.parse_args()
-    try:
+
+    if hasattr(args, "foo_opt"):
         opt = args.foo_opt
-    except AttributeError:
-        try:
-            opt = args.bar_opt
-        except AttributeError:
-            pass
+    elif hasattr(args, "bar_opt"):
+        opt = args.bar_opt
 
 
-また、複数のモジュールがコマンドライン引数を受け取る場合には特に強力です。
+また、複数のモジュールがコマンドライン引数を受け取る場合にも特に効果的です。
 通常、同一のパーサーやパース結果を複数モジュール間で受け渡しながらこねくり回す必要があります。
 しかし、clappyであれば各モジュールで個々にparseの処理を書くことができます。
 
@@ -66,10 +64,11 @@ clappyなし:
 argparseのwrapperのため、同じ引数を使うことができます。
 
 clappy.parse(*args, **kwargs)に渡す*args, **kwargsはそれぞれargparse.ArgumentParser().add_argument(*args, **kwargs)と同一です。
+[受け取れる引数一覧と説明はこちら。](https://docs.python.org/ja/3/library/argparse.html#the-add-argument-method)
+
 ただし、clappy.parseでは独自にis_flagというキーワード専用引数を受け取ることができます。
-これはargparseのadd_argumentで言う、action="store_true"を渡すのと同じです。
+これはargparseのadd_argumentで言う、action="store_true"を渡すのと全く同じです。
 "store_true"という文字列を毎度正確に思い出せなくてもいいようにするためのものです。
-"store_True", "store true"などにより間違い、無駄に調べる時間を抑止します。
 
 "is_flag"がTrueとされているオプションは、コマンドライン上で値を受け取りません。
 ただオプションが指定されたかどうかというboolを返すのみのflagになります。
@@ -78,12 +77,16 @@ clappy.parse(*args, **kwargs)に渡す*args, **kwargsはそれぞれargparse.Arg
 clappy.subcommand()でサブコマンドの処理が書けます。
 
 このsubcommand関数は、subparsers.add_parser()と同じ引数を受け取れます。
+[受け取れる引数一覧と説明はこちら。](https://docs.python.org/ja/3/library/argparse.html#argumentparser-objects)
 
-    subcommand = clappy.subcommand(*args, **kwargs)  # 1
+但し、位置引数として受け取れるのは最初の1つのみとなっている点に注意です。
+
+
+    subcommand = clappy.subcommand(name, **kwargs)  # 1
 
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(title="foo")
-    subparser = subparsers.add_parser(*args, **kwargs)  # 2
+    subparser = subparsers.add_parser(name, **kwargs)  # 2
     
     # 1と２には全く同じ引数が利用できます。
 
@@ -100,10 +103,12 @@ clappy.subcommand()でサブコマンドの処理が書けます。
 ### ヘルプ文の自動生成
 
 もしヘルプの自動生成がほしければ、clappy.create_help()をコードに足してください。
-この関数は、全てのparseが終わった後に足される必要があります。
+この関数は実行時までの全てのparseのhelpを作成するので、全てのparseの後に実行する必要があります。
 
-### Parserを生成したい
+### Parserを引数付きで生成したい
 
-通常、clappyではParserが自動で生成されますが、自分で生成することもできます。
+通常、clappyではParserのインスタンスが自動で生成されますが、引数を指定してインスタンス化することができます。
 clappy.initialize_parser(*args, **kwargs)を使ってください。
 この関数はargparse.ArgumentParser(*args, **kwargs)と同じ引数を受け取れます。
+[受け取れる引数一覧と説明はこちら。](https://docs.python.org/ja/3/library/argparse.html#argumentparser-objects)
+
