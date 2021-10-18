@@ -10,7 +10,7 @@ import inspect
 
 logger = logging.getLogger(__name__)
 HELP_OPTIONS = ["-h", "--help"]
-SUBCOMMAND = "_subcommand"
+SUBCOMMAND = "_subcommand_dest_for_clappy"
 
 if len(argv) == 2 and argv[1].lower() in HELP_OPTIONS:
     runs_with_help_option = True
@@ -444,7 +444,7 @@ Use same arguments for {self.parse.__name__}() to get cache."""
 
         return value
 
-    def _check_if_subcommand_included(self, action, given_args:list):
+    def _check_if_subcommand_included(self, action, given_args: list):
         """Checks all given_args if subcommand is included or not.
         If not, raise SubCommandNotFound."""
         for arg in given_args:
@@ -577,13 +577,13 @@ def create_help(*args, **kwargs):
 
 
 @init_parser
-def subcommand(*args, **kwargs):
+def subcommand(name, **kwargs):
     """Same arguments as ArgumentParser.subparsers.add_parser() are available."""
     global _parser
     assert isinstance(_parser, Parser)
     if not _parser.subparsers_list:
         _parser.add_subparsers()
-    subparser = _parser.subparsers_action.add_parser(*args, **kwargs)
+    subparser = _parser.subparsers_action.add_parser(name, **kwargs)
     _parser.subparsers_list.append(subparser)
     try:
         namespace, _ = _parser.parse_known_args()
@@ -592,7 +592,7 @@ def subcommand(*args, **kwargs):
     else:
         if hasattr(namespace, SUBCOMMAND):
             given_subcommand = getattr(namespace, SUBCOMMAND)
-            if given_subcommand in args or given_subcommand is kwargs.get("dest", None):
+            if given_subcommand == name or given_subcommand is kwargs.get("dest", None):
                 subparser.invoked = True
     return subparser
 
