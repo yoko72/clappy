@@ -167,6 +167,15 @@ class TestClappy(unittest.TestCase):
         expected_list = expected_message.splitlines()
         self.assertEqual(stdout_list, expected_list)
 
+    @temp_argv("--unrecognized", "foo")
+    def test_unrecognized_args(self):
+
+        with captured_stderr() as stderr:
+            with cl.Parser():
+                cl.parse("--not_given")
+        stderr = stderr.getvalue().splitlines()[0]
+        self.assertEqual(stderr, cl.Parser.UNRECOGNIZED_ERROR_MESSAGE % ["--unrecognized", "foo"])
+
     @temp_argv("--foo", "1", "--foo", "2")
     def test_append(self):
         append_bound("--foo", action="append")
