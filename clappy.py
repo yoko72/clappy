@@ -19,7 +19,7 @@ else:
     runs_with_help_option = False
 
 
-def normalize_bound_of_args(func):
+def _normalize_bound_of_args(func):
     """Same hash by same values.
     This converts each keyword arg to positional arg as much as possible.
     If default arguments don't get actual argument, explicitly give the default value.
@@ -55,6 +55,7 @@ class Parser(argparse.ArgumentParser):
 This usually happens because of similar names of arguments or confusing order of arguments.
 Consider to change them if you actually got invalid result.'''
     VALUE_CHANGE_MESSAGE = '''"{attr}" changed from {last_time} to {this_time}.'''
+    UNRECOGNIZED_ERROR_MESSAGE = "unrecognized args: %s"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -66,7 +67,7 @@ Consider to change them if you actually got invalid result.'''
         self.subparsers_action = None
         self.index_of_subcommand = None
 
-    @normalize_bound_of_args
+    @_normalize_bound_of_args
     @functools.lru_cache()  # so that parse can be called multiple times to get result in multiple places.
     def parse(self, *args, is_flag=False, **kwargs):
         if self.subparsers_list:
@@ -92,35 +93,36 @@ Usually, the cache is returned in such case. However, cache is not returned this
 since some of given arguments are different from last time. 
 Use same arguments for {self.parse.__name__}() to get cache."""
                 raise ValueError(msg) from e
-        if not runs_with_help_option:
-            latest_namespace, unrecognized_args = self.parse_known_args()
-            for action in self._option_string_actions.values():
-                if hasattr(action, "parsed_currently"):
-                    action.parsed_currently = False
-            if len(args) > 1:
-                lengths = map(len, args)
-                max_length = max(lengths)
-                input_arg_name = [arg for arg in args if len(arg) == max_length][0]
-            elif len(args) == 1:
-                input_arg_name = args[0]
-            else:
-                input_arg_name = kwargs.get("dest", None)
-                if input_arg_name is None:
-                    raise TypeError("Name of arg was not given. "
-                                    "Positional argument or keyword argument for 'dest' is required.")
+        if runs_with_help_option:
+            return
+        latest_namespace, unrecognized_args = self.parse_known_args()
+        for action in self._option_string_actions.values():
+            if hasattr(action, "parsed_currently"):
+                action.parsed_currently = False
+        if len(args) > 1:
+            lengths = map(len, args)
+            max_length = max(lengths)
+            input_arg_name = [arg for arg in args if len(arg) == max_length][0]
+        elif len(args) == 1:
+            input_arg_name = args[0]
+        else:
+            input_arg_name = kwargs.get("dest", None)
+            if input_arg_name is None:
+                raise TypeError("Name of arg was not given. "
+                                "Positional argument or keyword argument for 'dest' is required.")
 
-            # noinspection PyUnboundLocalVariable
-            arg = input_arg_name.lstrip(self.prefix_chars)
-            logger.debug(f"Unrecognized args while parsing {arg}: {unrecognized_args}")
-            if self.namespace:
-                for attr in self.namespace.__dict__:
-                    last_time = getattr(self.namespace, attr)
-                    this_time = getattr(latest_namespace, attr)
-                    if last_time != this_time:
-                        logger.error(self.VALUE_CHANGE_MESSAGE.format(input_arg_name=input_arg_name, attr=attr,
-                                                                      last_time=last_time, this_time=this_time))
-            self.namespace = latest_namespace
-            return getattr(latest_namespace, arg)
+        # noinspection PyUnboundLocalVariable
+        arg = input_arg_name.lstrip(self.prefix_chars)
+        logger.debug(f"Unrecognized args while parsing {arg}: {unrecognized_args}")
+        if self.namespace:
+            for attr in self.namespace.__dict__:
+                last_time = getattr(self.namespace, attr)
+                this_time = getattr(latest_namespace, attr)
+                if last_time != this_time:
+                    logger.error(self.VALUE_CHANGE_MESSAGE.format(input_arg_name=input_arg_name, attr=attr,
+                                                                  last_time=last_time, this_time=this_time))
+        self.namespace = latest_namespace
+        return getattr(latest_namespace, arg)
 
     def parse_known_args(self, *args, **kwargs):
         if args or kwargs:
@@ -130,7 +132,7 @@ Use same arguments for {self.parse.__name__}() to get cache."""
 
     def _parse_known_args(self, arg_strings, namespace):
         """Almost same as super()._parse_known_args.
-        This differs only at line 137 rows below and 156 rows below."""
+        This differs only at lines 137 rows below and 156 rows below."""
 
         # replace arg strings that are file references
         if self.fromfile_prefix_chars is not None:
@@ -463,21 +465,47 @@ Use same arguments for {self.parse.__name__}() to get cache."""
             msg = f"Failed to find subcommand {action_names} in args: {given_args}"
         else:
             msg = f"Valid value for {str(action)} is not found in value: {given_args}"
-        raise SubCommandNotFound(msg)
+        raise _SubCommandNotFound(msg)
 
     def add_subparsers(self, *, dest=None, parser_class=None, **kwargs):
         dest = dest or self.dest_name
-        parser_class = parser_class or SubCommand
+        parser_class = parser_class or _SubCommand
         self.subparsers_action = super().add_subparsers(dest=dest, parser_class=parser_class, **kwargs)
         return self.subparsers_action
 
+    def finish_parsing(self):
+        if runs_with_help_option:
+            self.parse_args()
+            exit()
+        elif len(argv) == 1:
+            logger.info("Script runs without arguments.")
+            return
+        else:
+            parsed, unrecognized = self.parse_known_args()
+            if unrecognized:
+                logger.error(self.UNRECOGNIZED_ERROR_MESSAGE % unrecognized)
 
-class SubCommandNotFound(Exception):
+    def __enter__(self):
+        global _parser
+        if _parser is None:
+            _parser = self
+        else:
+            logger.warning("Tried to use parser in with statement, but clappy already has initialized parser "
+                           "for the parse() function in global scope of clappy.py."
+                           "If you don't understand well, try 'with statement' first "
+                           "and call callable of clappy until the end of the statement.")
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.finish_parsing()
+
+
+class _SubCommandNotFound(Exception):
     def __init__(self, message):
         self.message = message
 
 
-class SubCommand(Parser):
+class _SubCommand(Parser):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.invoked = False
@@ -486,7 +514,7 @@ class SubCommand(Parser):
         return self.invoked
 
 
-class NotInvoked(Exception):
+class _NotInvoked(Exception):
     pass
 
 
@@ -524,12 +552,6 @@ def init_parser(func):
     return wrapper
 
 
-def clear_actions():
-    global _parser
-    if _parser:
-        _parser._actions = list()
-
-
 def clear_parser():
     global _parser
     _parser = None
@@ -559,21 +581,10 @@ def parse(*args, is_flag=False, **kwargs):
     return _parser.parse(*args, is_flag=is_flag, **kwargs)
 
 
-@init_parser
-def set_args_on_parse(*args, **kwargs):
-    _parser.args_for_parse = args
-    _parser.kwargs_on_parse = kwargs
-
-
-def create_help(*args, **kwargs):
+def create_help():
     """Create help and exit program. If help message by -h is not required, this method is not needed.
     Run this only when you want to show help by -h or --help"""
-    if runs_with_help_option:
-        _parser.parse_args(*args, **kwargs)
-        exit()
-    elif len(argv) == 1:
-        logger.info("Script runs without arguments.")
-        return
+    _parser.finish_parsing()
 
 
 @init_parser
@@ -587,7 +598,7 @@ def subcommand(name, **kwargs):
     _parser.subparsers_list.append(subparser)
     try:
         namespace, _ = _parser.parse_known_args()
-    except SubCommandNotFound:
+    except _SubCommandNotFound:
         pass
     else:
         if hasattr(namespace, SUBCOMMAND):
