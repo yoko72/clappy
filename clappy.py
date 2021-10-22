@@ -489,7 +489,7 @@ Use same arguments for {self.parse.__name__}() to get cache."""
         global _parser
         if _parser is None:
             _parser = self
-        else:
+        elif _parser is not self:
             logger.warning("Tried to use parser in with statement, but clappy already has initialized parser "
                            "for the parse() function in global scope of clappy.py."
                            "If you don't understand well, try 'with statement' first "
@@ -497,7 +497,8 @@ Use same arguments for {self.parse.__name__}() to get cache."""
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.finish_parsing()
+        if exc_type is exc_val is exc_tb is None:
+            self.finish_parsing()
 
 
 class _SubCommandNotFound(Exception):
