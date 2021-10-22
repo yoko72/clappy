@@ -169,12 +169,36 @@ class TestClappy(unittest.TestCase):
 
     @temp_argv("--unrecognized", "foo")
     def test_unrecognized_args(self):
-
         with captured_stderr() as stderr:
-            with cl.Parser():
-                cl.parse("--not_given")
+            with self.subTest(getter="construct_directly"):
+                with cl.Parser():
+                    cl.parse("--not_given")
+            with self.subTest(getter="from_getter"):
+                with cl.get_parser():
+                    cl.parse("--not_given")
         stderr = stderr.getvalue().splitlines()[0]
         self.assertEqual(stderr, cl.Parser.UNRECOGNIZED_ERROR_MESSAGE % ["--unrecognized", "foo"])
+
+    @temp_argv("--foo", "bar", "--hoge", "fuga")
+    def test_context_manager(self):
+        with cl.get_parser():
+            with self.subTest(arg="foo"):
+                self.assertEqual(cl.parse("--foo"), "bar")
+            with self.subTest(arg="hoge"):
+                self.assertEqual(cl.parse("--hoge"), "fuga")
+
+    @temp_argv("--foo", "bar", "--hoge", "fuga", "--var", "val")
+    def test_output_of_unrecognized_args_on_error(self):
+        with captured_stderr() as stderr:
+            with self.assertRaises(ZeroDivisionError):
+                with cl.get_parser():
+                    self.assertEqual(cl.parse("--foo"), "bar")
+                    1/0
+                    self.assertEqual(cl.parse("--hoge"), "fuga")
+            stderr = stderr.getvalue().splitlines()
+            if stderr:
+                with self.subTest():
+                    self.assertTrue("unrecognized" not in stderr)
 
     @temp_argv("--foo", "1", "--foo", "2")
     def test_append(self):
