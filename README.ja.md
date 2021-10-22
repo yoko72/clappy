@@ -61,7 +61,7 @@ clappyなし:
 
 ## 使い方
 
-argparseのwrapperのため、同じ引数を使うことができます。
+argparseのwrapperのため、主要関数に同じ引数を使うことができます。
 
 clappy.parse(*args, **kwargs)に渡す*args, **kwargsはそれぞれargparse.ArgumentParser().add_argument(*args, **kwargs)と同一です。
 [受け取れる引数一覧と説明はこちら。](https://docs.python.org/ja/3/library/argparse.html#the-add-argument-method)
@@ -102,13 +102,46 @@ clappy.subcommand()でサブコマンドの処理が書けます。
 
 ### ヘルプ文の自動生成
 
-もしヘルプの自動生成がほしければ、clappy.create_help()をコードに足してください。
-この関数は実行時までの全てのparseのhelpを作成するので、全てのparseの後に実行する必要があります。
+-hもしくは--helpのオプションと共にスクリプトが実行された際に使い方を出力したいケースがあると思います。
+そのヘルプをclappyで自動生成する方法は2つあります。
+
+1. clappy.create_help()を全てのパースが終わった後に実行
+
+
+    clappy.parse("--foo")
+    clappy.parse("--bar")
+    clappy.create_help()
+
+ヘルプオプション付きで実行されたプログラムは、受け取ることができる引数の一覧を取得した後、各引数の説明を出力するのが一般的です。
+その後に続くコードを実行するのは無駄なので、引数一覧取得後にはプログラムを終了することになります。
+
+つまり、引数一覧の取得がどのタイミングで終わったのかを知る必要があります。
+
+そこで、clappyでは全てのparseが終了したタイミングにclappy.create_help()を明記することで、
+ヘルプが自動生成できるようになります。
+
+2. with文でパーサーを受け取る
+
+
+    with clappy.get_parser():
+        clappy.parse("--foo")
+        clappy.parse("bar")
+
+With文があるとparseの終了タイミングがわかるのでヘルプを自動生成することができます。
+
+また、上記2つどちらのやり方でもparseされなかった引数が残っていた場合にログに警告が出力されるようになります。
+
 
 ### Parserを引数付きで生成したい
 
-通常、clappyではParserのインスタンスが自動で生成されますが、引数を指定してインスタンス化することができます。
-clappy.initialize_parser(*args, **kwargs)を使ってください。
-この関数はargparse.ArgumentParser(*args, **kwargs)と同じ引数を受け取れます。
-[受け取れる引数一覧と説明はこちら。](https://docs.python.org/ja/3/library/argparse.html#argumentparser-objects)
+with文と共に、parserに引数を渡してのインスタンス化を推奨します。
 
+    with clappy.get_parser(*args, **kwargs):
+        clappy.parse("--foo")
+        clappy.parse("bar")
+
+この関数get_parserはargparse.ArgumentParser(*args, **kwargs)と同じ引数を受け取れます。
+[受け取れる引数一覧と説明はこちら。](https://docs.python.org/ja/3/library/argparse.html#argumentparser-objects)
+上記のようにwith文と実行することで、 ヘルプの作成、parseされなかったコマンドライン引数があった場合の警告があるためです。
+
+但し、with文のブロック内で全てのparseを実行しなければいけなくなることに注意してください。

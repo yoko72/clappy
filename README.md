@@ -1,7 +1,7 @@
 # clappy
 
 Command Line Argument Parser for Pythonic code.
-Simple, readable, and writable wrapper of argparse.
+Simple and readable wrapper of argparse.
 
 with clappy:
 
@@ -70,7 +70,7 @@ Just call clappy.parse(*args, **kwargs) as if argparse.ArgumentParser().add_argu
 Additionally, clappy.parse accepts one keyword argument named "is_flag".
 It's just an alias of action="store_true" in argparse.
 
-An option with "is_flag" doesn't require argument, and it returns bool if the option is given in command line or not.
+An option with "is_flag" doesn't require argument, and it returns bool indicating if the option is given in command line or not.
 
 ### Subcommand
 
@@ -101,12 +101,41 @@ Following 2 examples are equivalent.
 
 ### Auto help generation
 
-Call clappy.create_help() for auto help generation. 
-It must be done after all arguments got parsed.
+If you wanna print usage of the script when it got runned with -h or --help option, 
+there are 2 ways to generate help automatically.
+
+1. Call clappy.create_help() for auto help generation after all arguments got parsed.
+
+
+    clappy.parse("--foo")
+    clappy.parse("--bar")
+    clappy.create_help()
+
+Help option usually makes script print help and exit without executing all lines.
+Therefore, commandline parser must know when registering all arguments finishes.
+
+clappy.create_help() explicitly shows the end of parse.
+
+
+2. Call parser as context manager like following example.
+
+
+    with clappy.get_parser():
+        clappy.parse("--foo")
+        clappy.parse("bar")
+
+Parser automatically creates help after with block.
 
 ### Construct parser with args
 
-Initialize parser with clappy.initialize_parser(*args, **kwargs).
-These args are common with argparse.ArgumentParser(*args, **kwargs).
-[Available arguments are here.](https://docs.python.org/3/library/argparse.html#argumentparser-objects)
+It is recommended to call getter of parser as context manager to construct parser with args you want.
 
+    with clappy.get_parser(*args, **kwargs):
+        clappy.parse("--foo")
+        clappy.parse("bar")
+
+That's because it detects and logs unrecognized arguments after parsing to notify error.
+Moreover, it creates help automatically thanks to with statement.
+
+Available arguments of get_parser(*args, **kwargs) is same as argparse.ArgumentParser().
+[Reference is here.](https://docs.python.org/3/library/argparse.html#argumentparser-objects)
