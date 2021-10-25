@@ -161,8 +161,7 @@ class TestClappy(unittest.TestCase):
             cl.parse(*bounds[1].args, **bounds[1].kwargs)
         stdout_list = stderr.getvalue().splitlines()
         expected_message = cl.get_parser().VALUE_CHANGE_MESSAGE.format(
-            input_arg_name="-a2", attr="a",
-            last_time="2", this_time="1"
+            attr="a", last_time="2", this_time="1"
         )
         expected_list = expected_message.splitlines()
         self.assertEqual(stdout_list, expected_list)
