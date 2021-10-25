@@ -51,7 +51,7 @@ class Parser(argparse.ArgumentParser):
     dest_name = SUBCOMMAND  # for detecting which subcommand is invoked
     is_verbose = True
     VERBOSE_VALUE_CHANGE_MESSAGE = '''
-    While parsing {input_arg_name}, the value of "{attr}" changed from {last_time} to {this_time}.
+    While parsing {dest}, the value of "{attr}" changed from {last_time} to {this_time}.
 This usually happens because of similar names of arguments or confusing order of arguments.
 Consider to change them if you actually got invalid result.'''
     VALUE_CHANGE_MESSAGE = '''"{attr}" changed from {last_time} to {this_time}.'''
@@ -84,45 +84,49 @@ Consider to change them if you actually got invalid result.'''
                 raise TypeError(f"{parse.__name__} got multiple values for action, "
                                 f"since is_flag=True is alias of action='store_true'.")
         try:
-            self.add_argument(*args, **kwargs)
+            action = self.add_argument(*args, **kwargs)
         except argparse.ArgumentError as e:
             if e.message.startswith("conflicting"):
                 msg = \
-                    f"""Tried to register same arguments.
+                    f"""Tried to register same argument.
 Usually, the cache is returned in such case. However, cache is not returned this time 
 since some of given arguments are different from last time. 
 Use same arguments for {self.parse.__name__}() to get cache."""
                 raise ValueError(msg) from e
+            else:
+                raise e
+        except Exception as e:
+            raise e
         if runs_with_help_option:
             return
         latest_namespace, unrecognized_args = self.parse_known_args()
-        for action in self._option_string_actions.values():
-            if hasattr(action, "parsed_currently"):
-                action.parsed_currently = False
-        if len(args) > 1:
-            lengths = map(len, args)
-            max_length = max(lengths)
-            input_arg_name = [arg for arg in args if len(arg) == max_length][0]
-        elif len(args) == 1:
-            input_arg_name = args[0]
-        else:
-            input_arg_name = kwargs.get("dest", None)
-            if input_arg_name is None:
-                raise TypeError("Name of arg was not given. "
-                                "Positional argument or keyword argument for 'dest' is required.")
-
-        # noinspection PyUnboundLocalVariable
-        arg = input_arg_name.lstrip(self.prefix_chars)
-        logger.debug(f"Unrecognized args while parsing {arg}: {unrecognized_args}")
+        for act in self._option_string_actions.values():
+            if hasattr(act, "parsed_currently"):
+                act.parsed_currently = False
+        # if len(args) > 1:
+        #     lengths = map(len, args)
+        #     max_length = max(lengths)
+        #     input_arg_name = [arg for arg in args if len(arg) == max_length][0]
+        # elif len(args) == 1:
+        #     input_arg_name = args[0]
+        # else:
+        #     input_arg_name = kwargs.get("dest", None)
+        #     if input_arg_name is None:
+        #         raise TypeError("Name of arg was not given. "
+        #                         "Positional argument or keyword argument for 'dest' is required.")
+        #
+        # # noinspection PyUnboundLocalVariable
+        # arg = input_arg_name.lstrip(self.prefix_chars)
+        logger.debug(f"Unrecognized args while parsing {action.dest}: {unrecognized_args}")
         if self.namespace:
             for attr in self.namespace.__dict__:
                 last_time = getattr(self.namespace, attr)
                 this_time = getattr(latest_namespace, attr)
                 if last_time != this_time:
-                    logger.error(self.VALUE_CHANGE_MESSAGE.format(input_arg_name=input_arg_name, attr=attr,
+                    logger.error(self.VALUE_CHANGE_MESSAGE.format(dest=action.dest, attr=attr,
                                                                   last_time=last_time, this_time=this_time))
         self.namespace = latest_namespace
-        return getattr(latest_namespace, arg)
+        return getattr(latest_namespace, action.dest)
 
     def parse_known_args(self, *args, **kwargs):
         if args or kwargs:
