@@ -1,8 +1,4 @@
-memo
 .idea
-*.bat
-.pypirc
-dist
-yobi
-jikken*
+雑多/*
+venv/*
 
